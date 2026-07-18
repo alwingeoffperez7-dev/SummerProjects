@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kryztine</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #000;
+    overflow: hidden;
+    height: 100%;
+  }
+  canvas {
+    display: block;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Violet / purple / pink hues (HSL hue values)
+const violetHues = [270, 280, 290, 300, 260, 285, 295, 310];
+
+function randHue() {
+  return violetHues[Math.floor(Math.random() * violetHues.length)];
+}
+
+const GRAVITY = 0.045;
+const FRICTION = 0.97;
+
+let rockets = [];
+let particles = [];
+
+class Rocket {
+  constructor() {
+    this.x = Math.random() * canvas.width * 0.7 + canvas.width * 0.15;
+    this.y = canvas.height;
+    this.targetY = Math.random() * canvas.height * 0.45 + canvas.height * 0.1;
+    this.speed = Math.random() * 4 + 8;
+    this.hue = randHue();
+    this.trail = [];
+  }
+  update() {
+    this.trail.push({x: this.x, y: this.y});
+    if (this.trail.length > 6) this.trail.shift();
+    this.y -= this.speed;
+    return this.y > this.targetY;
+  }
+  draw() {
+    // glowing trail
+    for (let i = 0; i < this.trail.length; i++) {
+      const t = this.trail[i];
+      const a = i / this.trail.length;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, 2, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${this.hue}, 100%, 75%, ${a})`;
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = `hsl(${this.hue}, 100%, 90%)`;
+    ctx.fill();
+  }
+  explode() {
+    const count = Math.floor(Math.random() * 50) + 60;
+    const baseHue = randHue();
+    const velocity = Math.random() * 3 + 4;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count;
+      const spd = velocity * (Math.random() * 0.5 + 0.6);
+      particles.push(new Particle(
+        this.x, this.y, angle, spd,
+        Math.random() < 0.75 ? baseHue : randHue()
+      ));
+    }
+  }
+}
+
+class Particle {
+  constructor(x, y, angle, speed, hue) {
+    this.x = x;
+    this.y = y;
+    this.vx = Math.cos(angle) * speed + (Math.random() - 0.5) * 0.6;
+    this.vy = Math.sin(angle) * speed + (Math.random() - 0.5) * 0.6;
+    this.hue = hue;
+    this.life = 1;
+    this.decay = Math.random() * 0.012 + 0.006;
+    this.size = Math.random() * 1.5 + 1.5;
+    this.lastX = x;
+    this.lastY = y;
+  }
+  update() {
+    this.lastX = this.x;
+    this.lastY = this.y;
+    this.vx *= FRICTION;
+    this.vy *= FRICTION;
+    this.vy += GRAVITY;
+    this.x += this.vx;
+    this.y += this.vy;
+    this.life -= this.decay;
+    return this.life > 0;
+  }
+  draw() {
+    // streak from last position to current (continuous-line effect)
+    ctx.beginPath();
+    ctx.moveTo(this.lastX, this.lastY);
+    ctx.lineTo(this.x, this.y);
+    ctx.strokeStyle = `hsla(${this.hue}, 100%, ${50 + this.life * 30}%, ${this.life})`;
+    ctx.lineWidth = this.size;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+}
+
+let frame = 0;
+
+function loop() {
+  // semi-transparent black for fading trails (the glow tail effect)
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // additive blending makes overlapping particles glow brighter
+  ctx.globalCompositeOperation = 'lighter';
+
+  frame++;
+  // continuously launch rockets
+  if (frame % (Math.floor(Math.random() * 12) + 8) === 0) {
+    rockets.push(new Rocket());
+    if (Math.random() < 0.4) rockets.push(new Rocket());
+  }
+
+  rockets = rockets.filter(r => {
+    const alive = r.update();
+    r.draw();
+    if (!alive) r.explode();
+    return alive;
+  });
+
+  particles = particles.filter(p => {
+    const alive = p.update();
+    if (alive) p.draw();
+    return alive;
+  });
+
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
