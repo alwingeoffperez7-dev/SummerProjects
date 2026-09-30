@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "magic-mcp": {
+      "command": "npx",
+      "args": ["@21st-dev/magic-mcp"],
+      "disabled": false
+    }
+  }
+}
